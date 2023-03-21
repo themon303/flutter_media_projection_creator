@@ -3,8 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 class MediaProjectionCreator {
-  static const MethodChannel _channel =
-      const MethodChannel('media_projection_creator');
+  static const MethodChannel _channel = const MethodChannel('media_projection_creator');
 
   static const int ERROR_CODE_SUCCEED = 0;
   static const int ERROR_CODE_FAILED_USER_CANCELED = 1;
@@ -23,5 +22,11 @@ class MediaProjectionCreator {
   /// Invoke this function will stop the media projection foreground notification service (since Android Q)
   static Future<int> destroyMediaProjection() async {
     return await _channel.invokeMethod('destroyMediaProjection');
+  }
+
+  /// Only support Android
+  /// Invoke this function will stop the media projection foreground notification service (since Android Q)
+  static Future<Uint8List> takeScreenShot() async {
+    return await _channel.invokeMethod('takeScreenShot');
   }
 }
