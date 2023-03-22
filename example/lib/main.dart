@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:media_projection_creator/media_projection_creator.dart';
 
 void main() {
@@ -14,6 +14,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   String createMediaProjectionResult = 'Unknown';
+  Uint8List currentImage;
 
   @override
   void initState() {
@@ -36,6 +37,13 @@ class _MyAppState extends State<MyApp> {
           createMediaProjectionResult = 'Failed: System API level need to higher than 21';
           break;
       }
+    });
+  }
+
+  Future<void> takeScreenshot() async {
+    final res = await MediaProjectionCreator.takeScreenShot();
+    setState(() {
+      currentImage = res;
     });
   }
 
@@ -64,16 +72,26 @@ class _MyAppState extends State<MyApp> {
                 onPressed: launch,
               ),
               SizedBox(height: 10),
+              CupertinoButton.filled(
+                child: Text('Take Screenshot'),
+                onPressed: takeScreenshot,
+              ),
+              SizedBox(height: 10),
               Text('Result: $createMediaProjectionResult'),
-
               SizedBox(height: 50),
               CupertinoButton.filled(
                 child: Text('Destroy MediaProjection'),
                 onPressed: finish,
               ),
+              if (currentImage != null)
+                Image.memory(
+                  currentImage,
+                  scale: 0.5,
+                  height: 100,
+                  width: 100,
+                ),
             ],
           ),
-
         ),
       ),
     );

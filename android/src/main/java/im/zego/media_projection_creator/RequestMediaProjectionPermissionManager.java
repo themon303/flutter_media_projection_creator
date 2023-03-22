@@ -15,6 +15,7 @@ import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.ImageFormat;
+import android.graphics.PixelFormat;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
 import android.media.Image;
@@ -30,6 +31,7 @@ import android.view.WindowManager;
 
 import androidx.annotation.RequiresApi;
 
+import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -94,14 +96,22 @@ public class RequestMediaProjectionPermissionManager extends BroadcastReceiver {
         context.startActivity(intent);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     void stopMediaProjectionService(Context context) {
         if (service != null) {
             context.stopService(service);
         }
+        stopProjection();
     }
 
-    void startProjection(MethodChannel.Result result) {
+    void takeScreenshot(MethodChannel.Result result) {
         this.flutterResult = result;
+        if (flutterResult != null) {
+            flutterResult.success(mScreenshot);
+        }
+    }
+
+    void startProjection() {
         if (mMediaProjection != null) {
             // display metrics
             mDensity = Resources.getSystem().getDisplayMetrics().densityDpi;
@@ -137,6 +147,7 @@ public class RequestMediaProjectionPermissionManager extends BroadcastReceiver {
 
     public void onMediaProjectionCreated(MediaProjection mediaProjection, int errorCode) {
         mMediaProjection = mediaProjection;
+        startProjection();
         this.invokeCallback(mediaProjection, errorCode);
     }
 
@@ -204,6 +215,7 @@ public class RequestMediaProjectionPermissionManager extends BroadcastReceiver {
             this.flutterResult.success(errorCode);
         }
     }
+    @SuppressLint("WrongConstant")
     private void createVirtualDisplay() {
         if (mMediaProjection != null) {
             // get width and height
@@ -214,7 +226,7 @@ public class RequestMediaProjectionPermissionManager extends BroadcastReceiver {
             // start capture reader
             mImageReader = null;
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-                mImageReader = ImageReader.newInstance(mWidth, mHeight, ImageFormat.JPEG, 1);
+                mImageReader = ImageReader.newInstance(mWidth, mHeight, PixelFormat.RGBA_8888, 2);
                 mVirtualDisplay = mMediaProjection.createVirtualDisplay("SCREEN_CAP", mWidth, mHeight,
                         mDensity, getVirtualDisplayFlags(), mImageReader.getSurface(), null, mHandler);
                 mImageReader.setOnImageAvailableListener(new ImageAvailableListener(), mHandler);
@@ -237,6 +249,7 @@ public class RequestMediaProjectionPermissionManager extends BroadcastReceiver {
     private MediaProjection mMediaProjection;
     private Display mDisplay;
     private int mRotation;
+    private byte[] mScreenshot;
 
     @RequiresApi(api = Build.VERSION_CODES.KITKAT)
     private class OrientationChangeCallback extends OrientationEventListener {
@@ -283,15 +296,29 @@ public class RequestMediaProjectionPermissionManager extends BroadcastReceiver {
         public void onImageAvailable(ImageReader reader) {
 
 //            FileOutputStream fos = null;
-//            Bitmap bitmap = null;
+            Bitmap bitmap = null;
             try (Image image = mImageReader.acquireLatestImage()) {
                 if (image != null) {
-                    ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-                    byte[] bytes = new byte[buffer.capacity()];
-                    if (flutterResult != null) {
-                        flutterResult.success(bytes);
-                    }
-                    stopProjection();
+                    Image.Plane[] planes = image.getPlanes();
+                    ByteBuffer buffer = planes[0].getBuffer();
+                    int pixelStride = planes[0].getPixelStride();
+                    int rowStride = planes[0].getRowStride();
+                    int rowPadding = rowStride - pixelStride * mWidth;
+                    bitmap = Bitmap.createBitmap(mWidth + rowPadding / pixelStride, mHeight, Bitmap.Config.ARGB_8888);
+                    ByteArrayOutputStream stream = new ByteArrayOutputStream();
+                    bitmap.copyPixelsFromBuffer(buffer);
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+
+//                    fos = new FileOutputStream(mStoreDir + "/myscreen_" + ".png");
+//                    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
+                    mScreenshot = stream.toByteArray();
+
+
+//                    ByteBuffer buffer = image.getPlanes()[0].getBuffer();
+//                    mScreenshot = new byte[buffer.remaining()];
+//                    if (flutterResult != null) {
+//                        flutterResult.success(bytes);
+//                    }
 
 //                    Image.Plane[] planes = image.getPlanes();
 //                    ByteBuffer buffer = planes[0].getBuffer();
@@ -302,12 +329,13 @@ public class RequestMediaProjectionPermissionManager extends BroadcastReceiver {
 //                    // create bitmap
 //                    bitmap = Bitmap.createBitmap(mWidth + rowPadding / pixelStride, mHeight, Bitmap.Config.ARGB_8888);
 //                    bitmap.copyPixelsFromBuffer(buffer);
-//
-//                    // write bitmap to a file
+
+                    // write bitmap to a file
 //                    fos = new FileOutputStream(mStoreDir + "/myscreen_" + ".png");
 //                    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
+//                    stopProjection();
 
-                    Log.d("ZEGO", "captured image");
+//                    Log.d("ZEGO", "captured image");
                 }
 
             } catch (Exception e) {
@@ -320,10 +348,10 @@ public class RequestMediaProjectionPermissionManager extends BroadcastReceiver {
 //                        ioe.printStackTrace();
 //                    }
 //                }
-//
-//                if (bitmap != null) {
-//                    bitmap.recycle();
-//                }
+
+                if (bitmap != null) {
+                    bitmap.recycle();
+                }
 
             }
         }

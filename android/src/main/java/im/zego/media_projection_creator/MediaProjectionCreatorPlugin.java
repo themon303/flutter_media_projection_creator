@@ -1,8 +1,10 @@
 package im.zego.media_projection_creator;
 
 import android.content.Context;
+import android.os.Build;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.plugin.common.MethodCall;
@@ -28,6 +30,7 @@ public class MediaProjectionCreatorPlugin implements FlutterPlugin, MethodCallHa
     context = flutterPluginBinding.getApplicationContext();
   }
 
+  @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
   @Override
   public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
 
@@ -43,8 +46,7 @@ public class MediaProjectionCreatorPlugin implements FlutterPlugin, MethodCallHa
 
   }  else if (call.method.equals("takeScreenShot")) {
 
-    RequestMediaProjectionPermissionManager.getInstance().startProjection(result);
-    result.success(0);
+    RequestMediaProjectionPermissionManager.getInstance().takeScreenshot(result);
 
   } else {
     result.notImplemented();
